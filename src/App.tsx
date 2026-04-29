@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'motion/react';
 import { ThreeDBook } from './components/ThreeDBook';
 
 export default function App() {
@@ -8,7 +8,15 @@ export default function App() {
   const [speed, setSpeed] = useState(45); // Motion response
   const [stagger, setStagger] = useState(70); // Default to more atmospheric/unified opening
   const [theme, setTheme] = useState<'studio' | 'blueprint' | 'darkroom'>('studio');
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  
+  // Use MotionValues for high-frequency updates to avoid full-component re-renders
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  
+  // Smoothed versions for the visual scanner
+  const smoothMouseX = useSpring(mouseX, { stiffness: 200, damping: 30, mass: 0.5 });
+  const smoothMouseY = useSpring(mouseY, { stiffness: 200, damping: 30, mass: 0.5 });
+
   const [viewport, setViewport] = useState({ x: 0, y: 0, z: 0 });
 
   const [isAutoPilot, setIsAutoPilot] = useState(false);
@@ -41,7 +49,8 @@ export default function App() {
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
+    mouseX.set(e.clientX);
+    mouseY.set(e.clientY);
   };
 
   const themes = {
@@ -107,13 +116,11 @@ export default function App() {
         {/* Viewport Crosshair Scanner */}
         <motion.div 
            className={`absolute left-0 w-full h-[1px] ${theme === 'studio' ? 'bg-black/[0.05]' : 'bg-white/[0.08]'}`}
-           animate={{ top: mousePos.y }}
-           transition={{ type: 'spring', stiffness: 200, damping: 30, mass: 0.5 }}
+           style={{ top: smoothMouseY }}
         />
         <motion.div 
            className={`absolute top-0 h-full w-[1px] ${theme === 'studio' ? 'bg-black/[0.05]' : 'bg-white/[0.08]'}`}
-           animate={{ left: mousePos.x }}
-           transition={{ type: 'spring', stiffness: 200, damping: 30, mass: 0.5 }}
+           style={{ left: smoothMouseX }}
         />
       </div>
 

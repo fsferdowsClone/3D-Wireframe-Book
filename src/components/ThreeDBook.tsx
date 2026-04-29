@@ -10,7 +10,7 @@ interface ThreeDBookProps {
   viewport?: { x: number; y: number; z: number };
 }
 
-const PAGE_COUNT = 25;
+const PAGE_COUNT = 20;
 const WIDTH = 260;
 const HEIGHT = 380;
 
@@ -97,6 +97,9 @@ export const ThreeDBook: React.FC<ThreeDBookProps> = ({
     }
   }, [mode, isManualOpen, tiltX, tiltY, intensity, speed, isAutoPilot]);
 
+  // Atmospheric Lens Flare
+  const flareOpacity = useTransform(intensity, [0, 1], [0.1, 0.3]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -182,7 +185,7 @@ export const ThreeDBook: React.FC<ThreeDBookProps> = ({
         className="absolute -top-40 -left-40 w-80 h-80 rounded-full blur-[100px] pointer-events-none"
         style={{ 
           background: theme === 'blueprint' ? 'radial-gradient(circle, #38bdf8 0%, transparent 70%)' : 'radial-gradient(circle, #5b9bd5 0%, transparent 70%)',
-          opacity: useTransform(intensity, [0, 1], [0.1, 0.3])
+          opacity: flareOpacity
         }}
       />
 
@@ -225,28 +228,45 @@ const DOTS_PATH = Array.from({ length: 48 }).map((_, i) =>
   `M ${(i % 6) * 35 + 40} ${Math.floor(i / 6) * 35 + 60} h 0.1`
 ).join(' ');
 
-const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, theme }) => {
+const Page: React.FC<PageProps> = React.memo(({ index, count, intensity, staggerFactor, theme }) => {
   const isCover = index === count - 1;
   const ratio = index / count;
   const [isContentVisible, setIsContentVisible] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isCurrentActive, setIsCurrentActive] = useState(false);
   const pageFlipAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastFlipState = useRef<number>(0);
 
-  // Performance Optimization: Calculate if page is active enough to render content
+  // Performance Optimization: Use transform instead of state to avoid re-renders
+  const contentOpacity = useTransform(intensity, (v: number) => {
+    const pageIndex = 1 - ratio; 
+    const startTrigger = pageIndex * (1 - staggerFactor);
+    // If intensity is near the trigger point for this page, show it
+    const isActive = Math.abs(v - startTrigger) < 0.25 || v > startTrigger;
+    return isActive ? 1 : 0;
+  });
+  
+  // Use MotionValues for boolean states to keep useTransform top-level
+  const hoveredMV = useMotionValue(0);
+  const contentVisibleMV = useMotionValue(1);
+
   useEffect(() => {
-    const unsubscribe = intensity.on("change", (v: number) => {
-      const pageIndex = 1 - ratio; 
-      const startTrigger = pageIndex * (1 - staggerFactor);
-      
-      // If intensity is near the trigger point for this page, it's active
-      const isActive = Math.abs(v - startTrigger) < 0.25 || v > startTrigger;
-      setIsCurrentActive(isActive);
-    });
-    return () => unsubscribe();
-  }, [intensity, ratio, staggerFactor]);
+    hoveredMV.set(isHovered ? 1 : 0);
+  }, [isHovered, hoveredMV]);
+
+  useEffect(() => {
+    contentVisibleMV.set(isContentVisible ? 1 : 0);
+  }, [isContentVisible, contentVisibleMV]);
+
+  const wireframeOpacity = useTransform(
+    [contentOpacity, hoveredMV, contentVisibleMV],
+    ([o, h, cv]) => (h || !cv) ? 0.4 : (o as number * 0.05)
+  );
+
+  const contentGroupOpacity = useTransform(
+    [contentOpacity, contentVisibleMV],
+    ([o, cv]) => cv ? (o as number) : 0
+  );
   
   // Staggered hydration for performance
   useEffect(() => {
@@ -272,6 +292,8 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
     const easedP = p * p * (3 - 2 * p);
     return easedP * -165; 
   });
+
+  const gradientOffset = useTransform(angle, [-165, -82, 0], ["0%", "50%", "100%"]);
 
   // Individual page flip sound trigger
   useEffect(() => {
@@ -347,11 +369,8 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
 
   const boxShadow = useTransform(angle, (a: number) => {
     const progress = Math.abs((a as number) / 165);
-    const liftFactor = Math.sin(progress * Math.PI);
-    const blur = 10 + (liftFactor * 40);
-    const opacity = 0.05 + (liftFactor * 0.1);
-    const xOffset = (a as number) > -90 ? liftFactor * 15 : liftFactor * -15;
-    return `${xOffset}px ${liftFactor * 20}px ${blur}px rgba(0,0,0,${opacity})`;
+    const opacity = 0.05 + (Math.sin(progress * Math.PI) * 0.08);
+    return `0 4px 12px rgba(0,0,0,${opacity})`;
   });
 
   // Derived motion values for style objects to keep hooks top-level
@@ -413,7 +432,7 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
           <linearGradient id={`page-grad-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
             <motion.stop offset="0%" stopColor={colors.bg} />
             <motion.stop 
-               offset={useTransform(angle, [-165, -82, 0], ["0%", "50%", "100%"])} 
+               offset={gradientOffset} 
                stopColor="#f9f9f9" 
                stopOpacity="0.8"
             />
@@ -449,12 +468,6 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
             <stop offset="0%" stopColor="#991b1b" stopOpacity="0.6" />
             <stop offset="100%" stopColor="#991b1b" stopOpacity="0" />
           </radialGradient>
-          <filter id="noiseFilter">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-          </filter>
-          <pattern id="cover-texture" width="100" height="100" patternUnits="userSpaceOnUse">
-             <rect width="100" height="100" filter="url(#noiseFilter)" opacity="0.2" />
-          </pattern>
           <pattern id={`grid-pattern-${index}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke={theme === 'studio' ? '#000' : '#5b9bd5'} strokeWidth="0.2" opacity="0.05" />
           </pattern>
@@ -492,13 +505,14 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
         />
 
         {/* Technical Wireframe Marks */}
-        {isHydrated && isCurrentActive && (
+        {isHydrated && (
           <motion.g
-            initial={{ opacity: 0 }}
-            animate={{ opacity: (isHovered || !isContentVisible) ? 0.4 : 0.05 }}
-            transition={{ duration: 0.4 }}
+            style={{ 
+              opacity: wireframeOpacity,
+              skewX: contentSkewX, 
+              stroke: colors.accent 
+            }}
             className="stroke-[0.5px] fill-none"
-            style={{ skewX: contentSkewX, stroke: colors.accent }}
           >
             {/* Corner Brackets */}
             <path d="M 15 30 L 15 15 L 30 15" />
@@ -516,12 +530,12 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
         )}
         
         {/* Toggleable Content Group */}
-        {isHydrated && isCurrentActive && (
+        {isHydrated && (
           <motion.g
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isContentVisible ? 1 : 0 }}
-            transition={{ duration: 0.3 }}
-            style={{ skewX: contentSkewX }}
+            style={{ 
+              opacity: contentGroupOpacity,
+              skewX: contentSkewX 
+            }}
           >
             {/* Architectural Marks - High performance path-based dots */}
             <motion.path 
@@ -634,4 +648,4 @@ const Page: React.FC<PageProps> = ({ index, count, intensity, staggerFactor, the
       </svg>
     </motion.div>
   );
-};
+});
