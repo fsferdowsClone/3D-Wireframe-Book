@@ -12,11 +12,28 @@ export default function App() {
   const [viewport, setViewport] = useState({ x: 0, y: 0, z: 0 });
 
   const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const [isControlsOpen, setIsControlsOpen] = useState(window.innerWidth > 768);
 
   useEffect(() => {
     const updateScale = () => {
       const width = window.innerWidth;
-      setScale(width < 640 ? Math.min(width / 400, 0.8) : 1);
+      const height = window.innerHeight;
+      
+      // Fluid scaling logic for mobile/tablet/desktop
+      if (width < 640) {
+        setScale(Math.min(width / 420, 0.75));
+      } else if (width < 1024) {
+        setScale(Math.min(width / 768, 0.9));
+      } else {
+        const verticalScale = Math.min(height / 800, 1);
+        setScale(Math.min(1, verticalScale));
+      }
+
+      if (width <= 768) {
+        // Default to closed on mobile, but keep state if user toggled
+      } else {
+        setIsControlsOpen(true);
+      }
     };
     updateScale();
     window.addEventListener('resize', updateScale);
@@ -101,17 +118,35 @@ export default function App() {
       </div>
 
       {/* Premium UI Navigation - Right Floating Rail */}
-      <div className="absolute top-6 bottom-24 right-6 md:top-12 md:right-12 z-50 flex flex-col items-end gap-10 md:gap-16 pointer-events-none">
-        <div className="pointer-events-auto flex flex-col items-end gap-8 md:gap-12">
+      <div className={`absolute top-4 bottom-20 right-4 md:top-12 md:right-12 z-50 flex flex-col items-end gap-4 md:gap-16 pointer-events-none ${isControlsOpen ? 'max-h-[85vh]' : 'max-h-12'} transition-all duration-700 overflow-y-auto no-scrollbar pb-10`}>
+        
+        {/* Mobile Toggle Button */}
+        <button 
+          onClick={() => setIsControlsOpen(!isControlsOpen)}
+          className={`md:hidden pointer-events-auto w-12 h-12 flex items-center justify-center rounded-full backdrop-blur-2xl ring-1 shadow-2xl transition-all duration-500 ${
+            theme === 'studio' ? 'bg-white/80 ring-black/5 text-black' : 'bg-black/80 ring-white/10 text-white'
+          } ${isControlsOpen ? 'rotate-90' : 'rotate-0'}`}
+        >
+          <div className="w-4 h-[1px] bg-current relative">
+            <div className={`absolute top-[-4px] left-0 w-full h-full bg-current transition-transform duration-500 ${isControlsOpen ? 'translate-y-[4px] rotate-45' : ''}`} />
+            <div className={`absolute bottom-[-4px] left-0 w-full h-full bg-current transition-transform duration-500 ${isControlsOpen ? 'translate-y-[-4px] -rotate-45' : ''}`} />
+          </div>
+        </button>
+
+        <motion.div 
+          animate={{ opacity: isControlsOpen ? 1 : 0, scale: isControlsOpen ? 1 : 0.95, y: isControlsOpen ? 0 : 20 }}
+          initial={false}
+          transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+          className={`pointer-events-auto flex flex-col items-end gap-6 md:gap-12 w-full ${!isControlsOpen ? 'pointer-events-none invisible md:visible md:pointer-events-auto opacity-0 md:opacity-100' : ''}`}
+        >
           {/* Environment Toggle */}
           <div className="flex flex-col items-end gap-3">
-
-            <div className={`flex gap-3 p-2 ${themes[theme].ui} rounded-full backdrop-blur-xl ring-1 ${themes[theme].border} shadow-xl`}>
+            <div className={`flex gap-3 p-1.5 md:p-2 ${themes[theme].ui} rounded-full backdrop-blur-xl ring-1 ${themes[theme].border} shadow-xl`}>
               {(['studio', 'blueprint', 'darkroom', 'deadnote'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTheme(t)}
-                  className={`w-6 h-6 md:w-7 md:h-7 rounded-full border-2 transition-all duration-500 relative ${
+                  className={`w-8 h-8 md:w-8 md:h-8 rounded-full border-2 transition-all duration-500 relative flex-shrink-0 ${
                     theme === t 
                       ? 'border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
                       : 'border-transparent opacity-40 hover:opacity-100'
@@ -125,13 +160,12 @@ export default function App() {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-
             <nav className={`flex flex-col gap-1.5 p-1.5 ${themes[theme].ui} ring-1 ${themes[theme].border} shadow-2xl rounded-lg backdrop-blur-xl`}>
               {(['hover', 'cursor'] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
-                  className={`relative w-36 md:w-40 py-2 md:py-2.5 px-4 text-[9px] uppercase tracking-[0.2em] transition-all duration-500 rounded-md overflow-hidden group ${
+                  className={`relative w-32 md:w-40 py-2.5 md:py-3 px-4 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all duration-500 rounded-md overflow-hidden group min-h-[44px] flex items-center justify-center ${
                     mode === m ? 'text-white' : (theme === 'studio' ? 'text-black/40 hover:text-black/70' : 'text-white/40 hover:text-white/70')
                   }`}
                 >
@@ -149,7 +183,7 @@ export default function App() {
               {/* Auto Pilot Feature toggle */}
               <button
                 onClick={() => setIsAutoPilot(!isAutoPilot)}
-                className={`relative w-36 md:w-40 py-2 md:py-2.5 px-4 text-[9px] uppercase tracking-[0.2em] transition-all duration-500 rounded-md overflow-hidden group flex items-center justify-between ${
+                className={`relative w-32 md:w-40 py-2.5 md:py-3 px-4 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all duration-500 rounded-md overflow-hidden group flex items-center justify-between min-h-[44px] ${
                   isAutoPilot ? 'text-white' : (theme === 'studio' ? 'text-black/40 hover:text-black/70' : 'text-white/40 hover:text-white/70')
                 }`}
               >
@@ -166,15 +200,15 @@ export default function App() {
             </nav>
           </div>
 
-
-          <div className="hidden sm:flex flex-col items-end gap-10 w-44">
+          {/* Advanced Controls - Toggleable on mobile/small tablets for space */}
+          <div className="flex flex-col items-end gap-1 md:gap-4 w-32 md:w-44">
             {/* Motion Inertia Control */}
-            <div className="flex flex-col items-end gap-4 w-full px-2">
+            <div className="flex flex-col items-end gap-1 w-full px-2">
               <div className={`flex justify-between w-full items-end pb-1 border-b ${theme === 'studio' ? 'border-black/[0.03]' : 'border-white/[0.03]'}`}>
-
+                <span className={`text-[8px] font-mono opacity-40 uppercase ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Speed</span>
                 <span className={`text-[9px] font-mono font-medium ${theme === 'studio' ? 'text-black/60' : 'text-white/60'}`}>{speed}%</span>
               </div>
-              <div className="relative w-full py-4 group">
+              <div className="relative w-full py-5 md:py-4 group">
                 <input 
                   type="range" 
                   min="10" 
@@ -183,21 +217,16 @@ export default function App() {
                   onChange={(e) => setSpeed(parseInt(e.target.value))}
                   className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current hover:bg-current/20 transition-all focus:outline-none`}
                 />
-                <div className="absolute top-1/2 left-0 w-full flex justify-between pointer-events-none px-0.5">
-                   {Array.from({length: 11}).map((_, i) => (
-                     <div key={i} className={`w-[1px] h-1 ${theme === 'studio' ? 'bg-black/10' : 'bg-white/10'} ${i % 5 === 0 ? 'h-2 bg-current/20' : ''}`} />
-                   ))}
-                </div>
               </div>
             </div>
 
             {/* Sequential Depth Control */}
-            <div className="flex flex-col items-end gap-4 w-full px-2">
+            <div className="flex flex-col items-end gap-1 w-full px-2">
               <div className={`flex justify-between w-full items-end pb-1 border-b ${theme === 'studio' ? 'border-black/[0.03]' : 'border-white/[0.03]'}`}>
-
+                <span className={`text-[8px] font-mono opacity-40 uppercase ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Stagger</span>
                 <span className={`text-[9px] font-mono font-medium ${theme === 'studio' ? 'text-black/60' : 'text-white/60'}`}>{stagger}%</span>
               </div>
-              <div className="relative w-full py-4 group">
+              <div className="relative w-full py-5 md:py-4 group">
                 <input 
                   type="range" 
                   min="10" 
@@ -206,63 +235,64 @@ export default function App() {
                   onChange={(e) => setStagger(parseInt(e.target.value))}
                   className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-[#5b9bd5] transition-all focus:outline-none`}
                 />
-                <div className="absolute top-1/2 left-0 w-full flex justify-between pointer-events-none px-0.5">
-                   {Array.from({length: 11}).map((_, i) => (
-                     <div key={i} className={`w-[1px] h-1 ${theme === 'studio' ? 'bg-black/10' : 'bg-white/10'} ${i % 5 === 0 ? 'h-2 bg-current/20' : ''}`} />
-                   ))}
-                </div>
               </div>
             </div>
 
             {/* Viewport Spatial Controllers */}
-            <div className="flex flex-col items-end gap-6 w-full px-2 pt-6 border-t border-current/5">
-              <div className="flex flex-col items-end gap-2 w-full">
-                <div className="flex justify-between items-end pb-1 overflow-hidden">
-                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Translate_X</span>
+            <div className="flex flex-col items-end gap-1 md:gap-2 w-full px-2 pt-6 border-t border-current/5">
+              <div className="flex flex-col items-end gap-0 w-full">
+                <div className="flex justify-between items-end pb-1 overflow-hidden w-full">
+                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>X</span>
                   <span className={`text-[9px] font-mono font-medium ${theme === 'studio' ? 'text-black/60' : 'text-white/60'}`}>{viewport.x}</span>
                 </div>
-                <input 
-                  type="range" min="-300" max="300" step="1" value={viewport.x}
-                  onChange={(e) => setViewport(prev => ({ ...prev, x: parseInt(e.target.value) }))}
-                  className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
-                />
+                <div className="relative w-full py-5 md:py-4">
+                  <input 
+                    type="range" min="-300" max="300" step="1" value={viewport.x}
+                    onChange={(e) => setViewport(prev => ({ ...prev, x: parseInt(e.target.value) }))}
+                    className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col items-end gap-2 w-full">
-                <div className="flex justify-between items-end pb-1 overflow-hidden">
-                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Translate_Y</span>
+              <div className="flex flex-col items-end gap-0 w-full">
+                <div className="flex justify-between items-end pb-1 overflow-hidden w-full">
+                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Y</span>
                   <span className={`text-[9px] font-mono font-medium ${theme === 'studio' ? 'text-black/60' : 'text-white/60'}`}>{viewport.y}</span>
                 </div>
-                <input 
-                  type="range" min="-300" max="300" step="1" value={viewport.y}
-                  onChange={(e) => setViewport(prev => ({ ...prev, y: parseInt(e.target.value) }))}
-                  className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
-                />
+                <div className="relative w-full py-5 md:py-4">
+                  <input 
+                    type="range" min="-300" max="300" step="1" value={viewport.y}
+                    onChange={(e) => setViewport(prev => ({ ...prev, y: parseInt(e.target.value) }))}
+                    className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col items-end gap-2 w-full">
-                <div className="flex justify-between items-end pb-1 overflow-hidden">
-                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Depth_Z</span>
+              <div className="flex flex-col items-end gap-0 w-full">
+                <div className="flex justify-between items-end pb-1 overflow-hidden w-full">
+                  <span className={`text-[8px] font-mono opacity-40 uppercase tracking-tighter ${theme === 'studio' ? 'text-black' : 'text-white'}`}>Z</span>
                   <span className={`text-[9px] font-mono font-medium ${theme === 'studio' ? 'text-black/60' : 'text-white/60'}`}>{viewport.z}</span>
                 </div>
-                <input 
-                  type="range" min="-600" max="600" step="1" value={viewport.z}
-                  onChange={(e) => setViewport(prev => ({ ...prev, z: parseInt(e.target.value) }))}
-                  className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
-                />
+                <div className="relative w-full py-5 md:py-4">
+                  <input 
+                    type="range" min="-600" max="600" step="1" value={viewport.z}
+                    onChange={(e) => setViewport(prev => ({ ...prev, z: parseInt(e.target.value) }))}
+                    className={`w-full h-[1px] ${theme === 'studio' ? 'bg-black/10' : 'bg-white/20'} appearance-none cursor-pointer accent-current focus:outline-none`}
+                  />
+                </div>
               </div>
 
               <button 
                 onClick={() => setViewport({ x: 0, y: 0, z: 0 })}
-                className={`mt-2 text-[8px] font-mono uppercase tracking-[0.2em] border px-3 py-1.5 transition-all ${theme === 'studio' ? 'border-black/10 hover:bg-black/5 text-black/40' : 'border-white/10 hover:bg-white/5 text-white/40'} rounded-md`}
+                className={`mt-2 text-[8px] font-mono uppercase tracking-[0.2em] border px-3 py-2 transition-all min-h-[44px] flex items-center justify-center ${theme === 'studio' ? 'border-black/10 hover:bg-black/5 text-black/40' : 'border-white/10 hover:bg-white/5 text-white/40'} rounded-md pointer-events-auto w-full`}
               >
-                Reset_Viewport
+                Reset
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className={`mt-auto px-2 transition-opacity duration-1000 ${theme === 'studio' ? 'opacity-30' : 'opacity-60'}`}>
+        <div className={`mt-auto px-2 transition-opacity duration-1000 ${theme === 'studio' ? 'opacity-30' : 'opacity-60'} hidden md:block`}>
           <div className={`w-16 h-[1px] ${theme === 'studio' ? 'bg-black/20' : 'bg-white/30'} self-end mt-4 ml-auto`} />
         </div>
       </div>

@@ -65,19 +65,29 @@ export const ThreeDBook: React.FC<ThreeDBookProps> = ({
     if (isAutoPilot) return; // Auto-pilot has control
 
     if (mode === 'cursor') {
-      const handleMouseMove = (e: MouseEvent) => {
-        const xProgress = Math.min(1.02, Math.max(0, 1.05 - (e.clientX / window.innerWidth) * 1.1));
-        
-        // Use animate() to support dynamic springConfig updates on the fly
+      const handleMove = (x: number, y: number) => {
+        const xProgress = Math.min(1.02, Math.max(0, 1.05 - (x / window.innerWidth) * 1.1));
         animate(intensity, xProgress, springConfig);
 
-        const rotateY = (e.clientX / window.innerWidth - 0.5) * 35;
-        const rotateX = (e.clientY / window.innerHeight - 0.5) * -20 + 15;
+        const rotateY = (x / window.innerWidth - 0.5) * 35;
+        const rotateX = (y / window.innerHeight - 0.5) * -20 + 15;
         tiltY.set(rotateY);
         tiltX.set(rotateX);
       };
-      window.addEventListener('mousemove', handleMouseMove);
-      return () => window.removeEventListener('mousemove', handleMouseMove);
+
+      const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+      const onTouchMove = (e: TouchEvent) => {
+        if (e.touches[0]) {
+          handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      return () => {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('touchmove', onTouchMove);
+      };
     } else {
       tiltX.set(15);
       tiltY.set(0);
